@@ -121,13 +121,21 @@
 <footer>Если кнопки нет в списке — скажите руководителю. Повторная отметка за день не создаёт дубль.</footer>
 
 <script>
-/* ================= НАСТРОЙКИ ================= */
+/* ============================================================
+   ◆◆◆  НАСТРОЙКИ — МЕНЯТЬ ТОЛЬКО ЗДЕСЬ  ◆◆◆
+   Ниже четыре строки, которые нужно заполнить:
+     1) ENDPOINT  — адрес веб-приложения Apps Script (…/exec)
+     2) EMPLOYEES — список сотрудников, как в Code.gs
+     3) ALLOW_WITHOUT_TOKEN — оставить false
+     4) AUTO_RETURN_SEC — через сколько секунд вернуться к списку
+   Всё остальное в файле трогать не нужно.
+   ============================================================ */
 var SETTINGS = {
   // Адрес веб-приложения Google Apps Script (из шага «Развернуть» инструкции)
-  ENDPOINT: 'https://script.google.com/macros/s/ВАШ_ID/exec',
+  ENDPOINT: 'https://script.google.com/macros/s/AKfycbyOGZznxz0jUEXeT8ef2l5U3GpQdsm0mSAucXkADwRdYIDB0uo1cqD_E7O4qWWTCjPH/exec',
 
   // Список сотрудников — точно как в Code.gs (CONFIG.EMPLOYEES)
-  EMPLOYEES: ['Иванов Пётр', 'Сидорова Анна', 'Кузнецов Илья', 'Морозова Ольга'],
+  EMPLOYEES: ['Верещагин Дмитоий', 'Смирнова Светлана', 'Верещагин Юрий', 'Верещагина Инна'],
 
   // Разрешать отметку без QR-кода (true — режим планшета у входа)
   ALLOW_WITHOUT_TOKEN: false,
@@ -141,6 +149,13 @@ var SETTINGS = {
   'use strict';
 
   var TZ = 'Europe/Moscow';
+
+  function configIssue() {
+    if (!SETTINGS.ENDPOINT || SETTINGS.ENDPOINT.indexOf('ВАШ_ID') > -1) {
+      return 'Страница не настроена: в блоке SETTINGS укажите адрес веб-приложения Apps Script, который заканчивается на /exec.';
+    }
+    return null;
+  }
 
   function mskNowParts() {
     var f = new Intl.DateTimeFormat('ru-RU', {
@@ -290,8 +305,10 @@ var SETTINGS = {
   function backToPick() {
     showScreen('screenPick');
     renderGrid();
+    var cfg = configIssue();
     var st = tokenState();
-    if (!st.ok) showBadge(st.text);
+    if (cfg) showBadge(cfg);
+    else if (!st.ok) showBadge(st.text);
   }
 
   function showError(text) {
@@ -305,8 +322,9 @@ var SETTINGS = {
   renderClock();
   setInterval(renderClock, 15000);
 
+  var cfg = configIssue();
   var st = tokenState();
-  if (!st.ok) showBadge(st.text);
+  if (cfg) showBadge(cfg); else if (!st.ok) showBadge(st.text);
   renderGrid();
   showScreen('screenPick');
 })();
