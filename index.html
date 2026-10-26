@@ -1,0 +1,2234 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="description" content="ЯВКИ — простая отметка прихода и ухода сотрудников. Данные сохраняются в Google Таблицу." />
+<meta name="format-detection" content="telephone=no" />
+<meta name="color-scheme" content="light dark" />
+<meta name="theme-color" content="#eef2f8" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="ЯВКИ" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<title>ЯВКИ · отметка сотрудников</title>
+<style>
+/* ============================================================
+   Переменные и база
+   ============================================================ */
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+:root{
+  --bg:#eef2f8;
+  --bg-soft:#f6f8fc;
+  --card:#ffffff;
+  --ink:#101828;
+  --muted:#667085;
+  --line:#e4e9f2;
+  --line-strong:#cfd8e6;
+  --brand:#2563eb;
+  --brand-2:#1d4ed8;
+  --brand-soft:#e8efff;
+  --ok:#0f9d76;
+  --ok-soft:#e5f7f1;
+  --warn:#b97205;
+  --warn-soft:#fdf2e1;
+  --bad:#d92d20;
+  --bad-soft:#fdeceb;
+  --radius:20px;
+  --shadow:0 14px 40px -22px rgba(16,24,40,.28);
+  --tabbar-h:64px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0b1220;
+    --bg-soft:#111a2b;
+    --card:#141f33;
+    --ink:#eaf0fa;
+    --muted:#94a3b8;
+    --line:#22304a;
+    --line-strong:#33445f;
+    --brand:#5b93ff;
+    --brand-2:#7aa8ff;
+    --brand-soft:#182a4c;
+    --ok:#35c79a;
+    --ok-soft:#12332a;
+    --warn:#f0b357;
+    --warn-soft:#33270f;
+    --bad:#ff6b60;
+    --bad-soft:#3a1917;
+    --shadow:0 16px 40px -22px rgba(0,0,0,.75);
+  }
+}
+html,body{min-height:100%}
+body{
+  margin:0;
+  color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+  font-size:16px;
+  line-height:1.45;
+  background:
+    radial-gradient(1100px 420px at 50% -160px, var(--brand-soft), transparent 72%),
+    var(--bg);
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+}
+body.modal-open{overflow:hidden}
+h1,h2,h3,p{margin:0}
+button{font:inherit;color:inherit}
+input,textarea{font:inherit}
+button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{
+  outline:2px solid var(--brand);
+  outline-offset:2px;
+}
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
+}
+
+/* ============================================================
+   Каркас
+   ============================================================ */
+.app{
+  width:100%;
+  max-width:760px;
+  margin:0 auto;
+  padding:14px 16px calc(var(--tabbar-h) + 30px + env(safe-area-inset-bottom));
+}
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:4px 2px 18px;
+}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.logo{
+  width:44px;height:44px;flex:none;
+  border-radius:14px;
+  display:grid;place-items:center;
+  color:#fff;
+  background:linear-gradient(135deg,#2563eb 0%,#7c3aed 100%);
+  box-shadow:0 10px 24px -12px rgba(37,99,235,.9);
+}
+.logo svg{width:25px;height:25px}
+.brand-text{min-width:0}
+.brand-name{
+  font-size:15px;font-weight:800;letter-spacing:.16em;line-height:1.1;
+}
+.brand-sub{
+  margin-top:3px;font-size:12px;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;
+}
+.topbar-right{text-align:right;flex:none}
+.clock{
+  font-size:22px;font-weight:750;line-height:1.05;
+  font-variant-numeric:tabular-nums;letter-spacing:.01em;
+}
+.clock-sub{font-size:10px;color:var(--muted);letter-spacing:.14em;margin-top:3px}
+.net{
+  display:inline-flex;align-items:center;justify-content:flex-end;gap:6px;
+  font-size:11.5px;color:var(--muted);margin-top:4px;font-weight:600;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:none}
+.dot.ok{background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+.dot.bad{background:var(--bad);box-shadow:0 0 0 3px var(--bad-soft)}
+.dot.wait{background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
+
+.view[hidden]{display:none}
+.page-head{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:14px;padding:2px 2px 16px;
+}
+.eyebrow{
+  font-size:10.5px;font-weight:750;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:6px;
+}
+h1{font-size:clamp(26px,7vw,34px);line-height:1.08;letter-spacing:-.025em;font-weight:800}
+h2{font-size:20px;line-height:1.2;letter-spacing:-.015em;font-weight:750}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.page-head .muted{margin-top:5px;font-size:14px}
+.card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:20px;
+}
+.footnote{
+  text-align:center;color:var(--muted);font-size:11.5px;
+  line-height:1.5;margin:18px auto 0;max-width:460px;
+}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);
+  border-radius:13px;padding:11px 16px;font-weight:650;font-size:14px;
+  cursor:pointer;transition:transform .1s ease,border-color .15s ease,background .15s ease;
+}
+.btn:hover{border-color:var(--line-strong)}
+.btn:active{transform:scale(.985)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn svg{width:16px;height:16px;flex:none}
+.btn-primary{
+  background:var(--brand);border-color:transparent;color:#fff;
+  box-shadow:0 12px 24px -14px var(--brand);
+}
+.btn-sm{padding:8px 12px;font-size:12.5px;border-radius:10px}
+.icon-btn{
+  width:40px;height:40px;flex:none;display:grid;place-items:center;
+  border-radius:12px;border:1px solid var(--line);background:var(--card);
+  color:var(--muted);cursor:pointer;
+}
+.icon-btn:hover{color:var(--ink);border-color:var(--line-strong)}
+.icon-btn svg{width:18px;height:18px}
+.back{
+  display:inline-flex;align-items:center;gap:6px;
+  background:none;border:0;color:var(--muted);font-size:13px;font-weight:600;
+  padding:2px 2px 12px;cursor:pointer;
+}
+.back:hover{color:var(--ink)}
+
+/* ============================================================
+   Плашка состояния
+   ============================================================ */
+.banner{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:11px 13px;border-radius:14px;margin-bottom:14px;
+  font-size:12.5px;line-height:1.45;border:1px solid transparent;
+}
+.banner[hidden]{display:none}
+.banner-text{flex:1;min-width:0;overflow-wrap:anywhere}
+.banner-demo{background:var(--brand-soft);color:var(--brand-2);border-color:rgba(37,99,235,.16)}
+.banner-warn{background:var(--warn-soft);color:var(--warn);border-color:rgba(185,114,5,.18)}
+.banner-error{background:var(--bad-soft);color:var(--bad);border-color:rgba(217,45,32,.18)}
+.banner-btn{
+  flex:none;border:0;background:rgba(255,255,255,.55);color:inherit;
+  border-radius:8px;padding:5px 9px;font-size:11.5px;font-weight:750;cursor:pointer;
+}
+@media (prefers-color-scheme: dark){
+  .banner-btn{background:rgba(255,255,255,.08)}
+}
+
+/* ============================================================
+   Выбор сотрудника
+   ============================================================ */
+.search{
+  display:flex;align-items:center;gap:10px;
+  background:var(--bg-soft);border:1px solid var(--line);
+  border-radius:14px;padding:0 14px;margin-bottom:16px;
+}
+.search svg{width:18px;height:18px;color:var(--muted);flex:none}
+.search input{
+  flex:1;min-width:0;border:0;background:transparent;color:var(--ink);
+  padding:13px 0;outline:none;
+}
+.search input::placeholder{color:var(--muted)}
+.emp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(152px,1fr));gap:10px}
+.emp{
+  display:flex;flex-direction:column;align-items:flex-start;gap:9px;
+  text-align:left;background:var(--bg-soft);color:var(--ink);
+  border:1px solid var(--line);border-radius:16px;padding:14px;
+  cursor:pointer;transition:transform .12s ease,border-color .15s ease,box-shadow .15s ease;
+}
+.emp:hover{border-color:var(--line-strong);transform:translateY(-1px);box-shadow:0 10px 20px -18px rgba(16,24,40,.6)}
+.emp:active{transform:scale(.985)}
+.emp-name{font-weight:650;font-size:14.5px;line-height:1.25;overflow-wrap:anywhere}
+.emp-status{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:11.5px;font-weight:650;color:var(--muted);white-space:nowrap;
+}
+.emp-status::before{
+  content:"";width:6px;height:6px;border-radius:50%;
+  background:currentColor;flex:none;
+}
+.s-work{color:var(--ok)}
+.s-left{color:var(--muted)}
+.s-absent{color:var(--bad)}
+.s-wait{color:var(--warn)}
+.empty-inline{
+  grid-column:1/-1;text-align:center;color:var(--muted);
+  font-size:13.5px;padding:24px 8px;
+}
+.avatar{
+  --h:210;
+  width:40px;height:40px;flex:none;border-radius:50%;
+  display:grid;place-items:center;
+  font-size:13px;font-weight:750;letter-spacing:.02em;
+  background:hsl(var(--h) 68% 92%);
+  color:hsl(var(--h) 55% 30%);
+}
+.avatar-lg{width:56px;height:56px;font-size:18px}
+@media (prefers-color-scheme: dark){
+  .avatar{background:hsl(var(--h) 45% 23%);color:hsl(var(--h) 78% 80%)}
+}
+
+/* ============================================================
+   Карточка сотрудника и кнопки отметки
+   ============================================================ */
+.person-top{display:flex;align-items:center;gap:14px}
+.person-id{min-width:0}
+.person-id h2{overflow-wrap:anywhere}
+.person-id p{font-size:12.5px;color:var(--muted);margin-top:4px}
+.dot-sep{padding:0 3px;opacity:.6}
+.status-text{font-weight:650}
+.timeline{display:flex;flex-wrap:wrap;gap:7px;margin-top:18px}
+.tl{
+  display:inline-flex;align-items:baseline;gap:6px;
+  background:var(--bg-soft);border:1px solid var(--line);
+  border-radius:10px;padding:6px 9px;font-size:11.5px;color:var(--muted);
+}
+.tl b{color:var(--ink);font-size:13px;font-variant-numeric:tabular-nums}
+.tl.out{opacity:.82}
+.pending-dot{color:var(--warn);font-weight:800}
+.mark-hint{
+  margin-top:16px;font-size:12.5px;color:var(--muted);
+  line-height:1.5;overflow-wrap:anywhere;
+}
+.mark-hint b{color:var(--ink);font-variant-numeric:tabular-nums}
+.mark-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.mark-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;
+  padding:17px 8px;border-radius:16px;border:1px solid transparent;
+  font-size:15.5px;font-weight:750;cursor:pointer;
+  transition:transform .1s ease,filter .15s ease;
+}
+.mark-btn svg{width:23px;height:23px}
+.mark-btn:active{transform:scale(.98)}
+.mark-btn:disabled{opacity:.55;cursor:default}
+.mark-btn.in{
+  color:#fff;
+  background:linear-gradient(180deg,#12b886 0%,#059669 100%);
+  box-shadow:0 16px 30px -18px #059669;
+}
+.mark-btn.out{
+  background:var(--card);color:var(--ink);border-color:var(--line-strong);
+}
+@media (prefers-color-scheme: dark){
+  .mark-btn.out{background:var(--bg-soft)}
+}
+.sending{
+  display:flex;align-items:center;gap:8px;justify-content:center;
+  color:var(--muted);font-size:12.5px;margin-top:10px;
+}
+.comment{
+  width:100%;margin-top:12px;padding:12px 14px;
+  border:1px solid var(--line);border-radius:12px;
+  background:var(--bg-soft);color:var(--ink);font-size:14px;
+  outline:none;
+}
+.comment::placeholder{color:var(--muted)}
+.spin{
+  width:15px;height:15px;border-radius:50%;flex:none;
+  border:2px solid currentColor;border-right-color:transparent;
+  display:inline-block;animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ============================================================
+   Успешная отметка
+   ============================================================ */
+.success{text-align:center;padding:32px 20px;animation:pop .22s ease}
+@keyframes pop{from{opacity:0;transform:translateY(6px) scale(.99)}to{opacity:1;transform:none}}
+.success-badge{
+  width:72px;height:72px;border-radius:50%;margin:0 auto 16px;
+  display:grid;place-items:center;
+  background:var(--ok-soft);color:var(--ok);
+  font-size:34px;font-weight:800;
+}
+.success.is-pending .success-badge{background:var(--warn-soft);color:var(--warn)}
+.success h2{margin-top:2px}
+.success-person{font-size:15px;font-weight:650;color:var(--muted);margin-top:6px;overflow-wrap:anywhere}
+.success-row{display:flex;align-items:baseline;justify-content:center;gap:9px;margin:20px 0 0}
+.success-time{
+  font-size:42px;font-weight:800;line-height:1;
+  letter-spacing:-.03em;font-variant-numeric:tabular-nums;
+}
+.success-type{
+  font-size:11.5px;font-weight:750;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);
+}
+.success-late{
+  display:inline-block;margin-top:12px;padding:4px 10px;border-radius:8px;
+  background:var(--warn-soft);color:var(--warn);
+  font-size:12px;font-weight:700;
+}
+.success-btn{width:100%;margin-top:24px;padding:14px}
+.success .hint{margin-top:12px}
+
+/* ============================================================
+   Сегодня
+   ============================================================ */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.stat{
+  background:var(--card);border:1px solid var(--line);
+  border-radius:14px;padding:12px 10px;min-width:0;
+}
+.stat-num{display:block;font-size:24px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat-label{display:block;font-size:10.5px;color:var(--muted);line-height:1.25;margin-top:4px}
+.stat.ok .stat-num{color:var(--ok)}
+.stat.warn .stat-num{color:var(--warn)}
+.stat.bad .stat-num{color:var(--bad)}
+.list-card{padding:6px 0;overflow:hidden}
+.list-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 18px 8px;font-size:11px;font-weight:750;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+}
+.person-row{
+  width:100%;display:flex;align-items:center;gap:12px;
+  background:none;border:0;border-top:1px solid var(--line);
+  padding:12px 18px;text-align:left;cursor:pointer;
+}
+.person-row:hover{background:var(--bg-soft)}
+.person-row:first-of-type{border-top:0}
+.row-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.row-name{font-weight:650;font-size:14px;overflow-wrap:anywhere}
+.row-sub{
+  font-size:11.5px;color:var(--muted);
+  font-variant-numeric:tabular-nums;overflow-wrap:anywhere;
+}
+.row-late{color:var(--warn);font-weight:700}
+.pill{
+  flex:none;font-size:10.5px;font-weight:750;
+  padding:4px 8px;border-radius:7px;white-space:nowrap;
+}
+.pill.work{background:var(--ok-soft);color:var(--ok)}
+.pill.left{background:var(--bg-soft);color:var(--muted);border:1px solid var(--line)}
+.pill.absent{background:var(--bad-soft);color:var(--bad)}
+.pill.wait{background:var(--warn-soft);color:var(--warn)}
+
+/* ============================================================
+   Журнал
+   ============================================================ */
+.seg{
+  display:inline-flex;gap:2px;padding:3px;margin-bottom:14px;
+  background:var(--bg-soft);border:1px solid var(--line);border-radius:12px;
+}
+.seg button{
+  border:0;background:transparent;color:var(--muted);
+  padding:7px 14px;border-radius:9px;font-size:12.5px;font-weight:650;cursor:pointer;
+}
+.seg button.is-active{
+  background:var(--card);color:var(--ink);
+  box-shadow:0 2px 8px -4px rgba(16,24,40,.35);
+}
+.journal-tools{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;margin:0 2px 4px;
+}
+.journal-tools .btn{white-space:nowrap}
+.jgroup{margin-top:16px}
+.jhead{
+  display:flex;align-items:center;justify-content:space-between;
+  margin:0 6px 7px;font-size:10.5px;font-weight:750;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+}
+.jlist{padding:4px 0;overflow:hidden}
+.jrow{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 16px;border-top:1px solid var(--line);
+}
+.jrow:first-child{border-top:0}
+.jtime{
+  width:46px;flex:none;font-size:13.5px;font-weight:750;
+  font-variant-numeric:tabular-nums;padding-top:1px;
+}
+.jmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.jname{font-size:13.5px;font-weight:650;overflow-wrap:anywhere}
+.jcomment{font-size:11.5px;color:var(--muted);overflow-wrap:anywhere}
+.jtype{
+  flex:none;font-size:9.5px;font-weight:750;letter-spacing:.05em;
+  text-transform:uppercase;padding:3px 6px;border-radius:6px;margin-top:1px;
+}
+.jtype.in{background:var(--ok-soft);color:var(--ok)}
+.jtype.out{background:var(--bg-soft);color:var(--muted);border:1px solid var(--line)}
+.jlate{flex:none;font-size:11px;font-weight:750;color:var(--warn);margin-top:3px}
+.empty{text-align:center;padding:34px 20px}
+.empty-ico{font-size:30px;line-height:1;margin-bottom:10px}
+.empty h2{font-size:18px;margin-bottom:6px}
+.empty p{color:var(--muted);font-size:13.5px;max-width:360px;margin:0 auto 16px}
+.empty-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.skeleton{color:var(--muted);font-size:13.5px;display:flex;align-items:center;justify-content:center;gap:9px;padding:30px 12px}
+.hint{font-size:11.5px;line-height:1.5;color:var(--muted);text-align:center;margin-top:10px}
+
+/* ============================================================
+   Нижняя навигация
+   ============================================================ */
+.tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  border-top:1px solid var(--line);
+  background:var(--card);
+  background:color-mix(in srgb,var(--card) 88%,transparent);
+  -webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(14px);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.tabbar-inner{
+  display:flex;width:100%;max-width:760px;margin:0 auto;
+  padding:0 6px;height:var(--tabbar-h);
+}
+.tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  border:0;background:none;color:var(--muted);
+  font-size:10.5px;font-weight:650;letter-spacing:.01em;cursor:pointer;
+  border-radius:12px;margin:6px 2px;transition:color .15s ease;
+}
+.tab svg{width:21px;height:21px}
+.tab.is-active{color:var(--brand)}
+.tab.is-active svg{stroke-width:2.4}
+
+/* ============================================================
+   Тост и модальное окно
+   ============================================================ */
+.toast{
+  position:fixed;left:50%;z-index:60;
+  bottom:calc(var(--tabbar-h) + 18px + env(safe-area-inset-bottom));
+  transform:translate(-50%,14px);opacity:0;pointer-events:none;
+  max-width:calc(100% - 32px);width:max-content;
+  padding:11px 16px;border-radius:13px;
+  background:#101828;color:#fff;
+  font-size:13px;font-weight:600;line-height:1.4;text-align:center;
+  box-shadow:0 18px 40px -18px rgba(0,0,0,.7);
+  transition:opacity .18s ease,transform .18s ease;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.ok{background:#067a5b}
+.toast.warn{background:#9a5c00}
+.toast.error{background:#b42318}
+.modal{
+  position:fixed;inset:0;z-index:70;
+  display:flex;align-items:flex-end;justify-content:center;
+  padding:16px;
+  background:rgba(9,15,30,.55);
+  -webkit-backdrop-filter:blur(3px);
+  backdrop-filter:blur(3px);
+}
+.modal[hidden]{display:none}
+.modal-card{
+  width:100%;max-width:400px;
+  max-height:calc(100vh - 32px);
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  background:var(--card);border:1px solid var(--line);
+  border-radius:22px;padding:22px;
+  box-shadow:0 30px 70px -20px rgba(0,0,0,.55);
+  animation:sheet .2s ease;
+}
+@keyframes sheet{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.modal-ico{font-size:24px;margin-bottom:8px}
+.modal-card h2{font-size:19px}
+.modal-card .muted{font-size:13px;margin-top:5px;overflow-wrap:anywhere}
+.pin-input{
+  width:100%;margin-top:18px;padding:13px;
+  text-align:center;font-size:26px;font-weight:750;letter-spacing:.35em;
+  border:1px solid var(--line-strong);border-radius:14px;
+  background:var(--bg-soft);color:var(--ink);outline:none;
+}
+.pin-error{
+  margin-top:10px;padding:8px 10px;border-radius:9px;
+  background:var(--bad-soft);color:var(--bad);font-size:12px;font-weight:600;
+}
+.modal-actions{display:flex;gap:8px;margin-top:16px}
+.modal-actions .btn{flex:1}
+.modal-actions .btn-primary{flex:1.3}
+
+/* ============================================================
+   Адаптив
+   ============================================================ */
+@media (min-width:600px){
+  .modal{align-items:center}
+  .app{padding-top:24px}
+  .tab{font-size:12px}
+  .tab svg{width:22px;height:22px}
+}
+@media (max-width:420px){
+  .stats{grid-template-columns:repeat(4,1fr);gap:6px}
+  .stat{padding:10px 8px}
+  .stat-num{font-size:21px}
+  .stat-label{font-size:9.5px}
+}
+@media (max-width:360px){
+  .brand-sub{display:none}
+  .clock{font-size:20px}
+  .app{padding-left:12px;padding-right:12px}
+  .card{padding:16px}
+  .emp-grid{grid-template-columns:1fr 1fr}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 6 9 17l-5-5"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-name" id="brandName">ЯВКИ</div>
+        <div class="brand-sub" id="companyName">Отметка сотрудников</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="clock-sub" id="clockSub">МСК</div>
+      <div class="net"><span class="dot" id="netDot"></span><span id="netLabel">Подключение</span></div>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <main>
+    <section class="view" id="view-mark">
+      <div id="markRoot"></div>
+    </section>
+    <section class="view" id="view-today" hidden>
+      <div id="todayRoot"></div>
+    </section>
+    <section class="view" id="view-journal" hidden>
+      <div id="journalRoot"></div>
+    </section>
+  </main>
+</div>
+
+<nav class="tabbar" aria-label="Разделы">
+  <div class="tabbar-inner">
+    <button type="button" class="tab is-active" data-action="tab" data-tab="mark" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9 11l3 3L22 4"/><path d="M21 12a9 9 0 1 1-6.2-8.6"/>
+      </svg>
+      Отметка
+    </button>
+    <button type="button" class="tab" data-action="tab" data-tab="today">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      Сегодня
+    </button>
+    <button type="button" class="tab" data-action="tab" data-tab="journal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/>
+      </svg>
+      Журнал
+    </button>
+  </div>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="modal" id="pinModal" hidden>
+  <form class="modal-card" id="pinForm" novalidate>
+    <div class="modal-ico" aria-hidden="true">🔒</div>
+    <h2 id="pinTitle">PIN сотрудника</h2>
+    <p class="muted" id="pinSub">Введите PIN, чтобы подтвердить отметку.</p>
+    <input class="pin-input" id="pinInput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" aria-label="PIN сотрудника" />
+    <div class="pin-error" id="pinError" hidden></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" data-action="pin-cancel">Отмена</button>
+      <button type="submit" class="btn btn-primary">Подтвердить</button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ==========================================================
+     НАСТРОЙКИ — меняйте только этот блок
+     ========================================================== */
+
+  var CONFIG = {
+    // 1) URL веб-приложения Google Apps Script (заканчивается на /exec).
+    //    Пока здесь заглушка — сайт работает в демо-режиме.
+    SCRIPT_URL: 'https://script.google.com/macros/s/ВСТАВЬТЕ_ID_РАЗВЕРТЫВАНИЯ/exec',
+
+    // 2) Ключ доступа. Должен совпадать с TOKEN в Code.gs.
+    TOKEN: 'yavk_5f8c2a91d4e7b3069af1c8d25b7e4a60',
+
+    // 3) Название организации в шапке.
+    COMPANY: 'Моя мастерская',
+
+    // 4) Часовой пояс (как в Code.gs).
+    TZ: 'Europe/Moscow',
+
+    // 5) Как часто обновлять данные с сервера, секунды.
+    POLL_SEC: 60,
+
+    // Демо-сотрудники: видны, пока не подключена Google Таблица.
+    DEMO_EMPLOYEES: [
+      { id: 'emp-01', name: 'Иванов Иван', start: '09:00', end: '18:00', hasPin: false },
+      { id: 'emp-02', name: 'Петрова Анна', start: '09:00', end: '18:00', hasPin: false },
+      { id: 'emp-03', name: 'Сидоров Пётр', start: '08:00', end: '17:00', hasPin: false },
+      { id: 'emp-04', name: 'Кузнецова Мария', start: '10:00', end: '19:00', hasPin: false },
+      { id: 'emp-05', name: 'Смирнов Алексей', start: '09:00', end: '18:00', hasPin: false },
+      { id: 'emp-06', name: 'Волкова Ольга', start: '09:00', end: '18:00', hasPin: false }
+    ]
+  };
+
+  /* ==========================================================
+     Константы и утилиты
+     ========================================================== */
+
+  var SCRIPT_URL = String(CONFIG.SCRIPT_URL || '').trim().replace(/\/+$/, '');
+  var TOKEN = String(CONFIG.TOKEN || '').trim();
+  var CONNECTED = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{25,}\/exec$/.test(SCRIPT_URL);
+
+  var TZ_LABEL = CONFIG.TZ === 'Europe/Moscow' ? 'МСК' : String(CONFIG.TZ || '').split('/').pop();
+  var POLL_MS = Math.max(20, Number(CONFIG.POLL_SEC) || 60) * 1000;
+  var QUEUE_RETRY_MS = 30000;
+
+  var LS = {
+    cache: 'yavki.cache.v1',
+    queue: 'yavki.queue.v1',
+    demo: 'yavki.demo.v1'
+  };
+
+  var MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  var WEEKDAYS = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
+
+  var DATE_FMT = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: CONFIG.TZ, year: 'numeric', month: '2-digit', day: '2-digit'
+  });
+  var TIME_FMT = new Intl.DateTimeFormat('ru-RU', {
+    timeZone: CONFIG.TZ, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  });
+
+  var ICONS = {
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+    refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>',
+    arrowDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16"/><path d="m5 13 7 7 7-7"/></svg>',
+    arrowUp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V4"/><path d="m5 11 7-7 7 7"/></svg>',
+    download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>'
+  };
+
+  function $(sel, root) { return (root || document).querySelector(sel); }
+
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function readJSON(store, key, fallback) {
+    try {
+      var raw = store.getItem(key);
+      if (!raw) return fallback;
+      var val = JSON.parse(raw);
+      return val == null ? fallback : val;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function writeJSON(store, key, value) {
+    try {
+      store.setItem(key, JSON.stringify(value));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function dateInTz(d) { return DATE_FMT.format(d); }
+
+  function timeInTz(d) {
+    return TIME_FMT.format(d).replace(/[^\d:]/g, '');
+  }
+
+  function now() { return new Date(Date.now() + state.clockOffset); }
+
+  function nowMinutes() {
+    var t = timeInTz(now()).split(':');
+    return Number(t[0] || 0) * 60 + Number(t[1] || 0);
+  }
+
+  function hhmm(t) {
+    var p = String(t == null ? '' : t).split(':');
+    var h = String(p[0] || '00');
+    var m = String(p[1] || '00');
+    return (h.length < 2 ? '0' + h : h) + ':' + (m.length < 2 ? '0' + m : m);
+  }
+
+  function hm(t) { return hhmm(t).slice(0, 5); }
+
+  function hhmmToMin(t) {
+    var m = String(t == null ? '' : t).match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    return Number(m[1]) * 60 + Number(m[2]);
+  }
+
+  function pad2(n) { return (Number(n) < 10 ? '0' : '') + Number(n); }
+
+  function shiftDate(dateStr, delta) {
+    var p = String(dateStr).split('-');
+    var d = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2]) + delta));
+    return d.toISOString().slice(0, 10);
+  }
+
+  function dateLabel(dateStr) {
+    var p = String(dateStr).split('-');
+    var y = Number(p[0]), m = Number(p[1]), d = Number(p[2]);
+    if (!y || !m || !d) return String(dateStr || '');
+    var base = d + ' ' + MONTHS[m - 1];
+    if (dateStr === state.today) return 'Сегодня, ' + base;
+    if (dateStr === shiftDate(state.today, -1)) return 'Вчера, ' + base;
+    var wd = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+    return base + ', ' + wd;
+  }
+
+  function todayLong() {
+    var p = String(state.today).split('-');
+    var y = Number(p[0]), m = Number(p[1]), d = Number(p[2]);
+    if (!y || !m || !d) return '';
+    var wd = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+    return d + ' ' + MONTHS[m - 1] + ', ' + wd;
+  }
+
+  function plural(n, one, few, many) {
+    var a = Math.abs(n) % 100;
+    var b = a % 10;
+    if (a > 10 && a < 20) return many;
+    if (b > 1 && b < 5) return few;
+    if (b === 1) return one;
+    return many;
+  }
+
+  function initials(name) {
+    var parts = String(name || '').trim().split(/\s+/);
+    if (!parts[0]) return '?';
+    if (parts[1]) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  function hue(name) {
+    var h = 0;
+    var s = String(name || '');
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+    return h;
+  }
+
+  function uid() {
+    try {
+      if (window.crypto && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, '').slice(0, 24);
+    } catch (e) {}
+    return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+  }
+
+  function deviceLabel() {
+    var ua = navigator.userAgent || '';
+    var os = /Android/i.test(ua) ? 'Android'
+      : /iPhone|iPad|iPod/i.test(ua) ? 'iOS'
+      : /Windows/i.test(ua) ? 'Windows'
+      : /Macintosh|Mac OS/i.test(ua) ? 'macOS'
+      : 'Другое';
+    var br = /YaBrowser/i.test(ua) ? 'Яндекс'
+      : /Edg\//i.test(ua) ? 'Edge'
+      : /OPR\//i.test(ua) ? 'Opera'
+      : /Chrome\//i.test(ua) ? 'Chrome'
+      : /Safari\//i.test(ua) ? 'Safari'
+      : /Firefox\//i.test(ua) ? 'Firefox'
+      : 'браузер';
+    return os + ' · ' + br;
+  }
+
+  /* ==========================================================
+     Состояние
+     ========================================================== */
+
+  var state = {
+    tab: 'mark',
+    backend: CONNECTED ? 'connecting' : 'demo',
+    employees: [],
+    records: [],
+    today: dateInTz(new Date()),
+    tolerance: 5,
+    defaultStart: '09:00',
+    defaultEnd: '18:00',
+    selectedId: '',
+    search: '',
+    comment: '',
+    queue: loadQueue(),
+    syncing: false,
+    markBusy: false,
+    sendingId: '',
+    problems: [],
+    success: null,
+    successTimer: null,
+    clockOffset: 0,
+    lastSync: 0,
+    error: '',
+    refreshBusy: false,
+    history: {
+      days: 7,
+      loadedDays: 0,
+      records: [],
+      loading: false,
+      loaded: false,
+      error: ''
+    },
+    pinRequest: null
+  };
+
+  var toastTimer = null;
+  var historySeq = 0;
+  var lastMinute = -1;
+
+  function loadQueue() {
+    var arr = readJSON(localStorage, LS.queue, []);
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(function (q) {
+      return q && q.id && q.employeeId && (q.type === 'in' || q.type === 'out') && typeof q.at === 'number';
+    }).map(function (q) {
+      return {
+        id: String(q.id),
+        employeeId: String(q.employeeId),
+        type: q.type,
+        comment: String(q.comment || ''),
+        at: Number(q.at),
+        tries: Number(q.tries || 0),
+        error: String(q.error || '')
+      };
+    });
+  }
+
+  function persistQueue() {
+    writeJSON(localStorage, LS.queue, state.queue.map(function (q) {
+      return {
+        id: q.id,
+        employeeId: q.employeeId,
+        type: q.type,
+        comment: q.comment || '',
+        at: q.at,
+        tries: q.tries || 0,
+        error: q.error || ''
+      };
+    }));
+  }
+
+  function removeQueueItem(id) {
+    for (var i = 0; i < state.queue.length; i++) {
+      if (state.queue[i].id === id) {
+        state.queue.splice(i, 1);
+        break;
+      }
+    }
+    persistQueue();
+  }
+
+  function loadCache() {
+    var cache = readJSON(localStorage, LS.cache, null);
+    if (!cache || typeof cache !== 'object') return;
+    if (Array.isArray(cache.employees)) {
+      state.employees = cache.employees.filter(function (e) {
+        return e && e.id && e.name;
+      }).map(function (e) {
+        return {
+          id: String(e.id), name: String(e.name),
+          start: e.start || state.defaultStart, end: e.end || state.defaultEnd,
+          hasPin: !!e.hasPin
+        };
+      });
+    }
+    if (Array.isArray(cache.records)) {
+      state.records = cache.records.map(normalizeRecord).filter(function (r) {
+        return r.date === state.today;
+      });
+    }
+  }
+
+  function saveCache() {
+    writeJSON(localStorage, LS.cache, {
+      employees: state.employees,
+      records: state.records.filter(function (r) { return r.date === state.today; }).slice(-1000),
+      today: state.today,
+      savedAt: Date.now()
+    });
+  }
+
+  function loadDemoRecords() {
+    var arr = readJSON(localStorage, LS.demo, []);
+    if (!Array.isArray(arr)) return [];
+    return arr.map(normalizeRecord).filter(function (r) { return r.date && r.employee; });
+  }
+
+  function saveDemoRecords(records) {
+    var cutoff = shiftDate(dateInTz(new Date()), -120);
+    writeJSON(localStorage, LS.demo, records.filter(function (r) {
+      return r.date >= cutoff;
+    }).slice(-5000));
+  }
+
+  function initDemo() {
+    state.employees = (CONFIG.DEMO_EMPLOYEES || []).map(function (e) {
+      return {
+        id: String(e.id), name: String(e.name),
+        start: e.start || '09:00', end: e.end || '18:00',
+        hasPin: !!e.hasPin
+      };
+    });
+    state.today = dateInTz(new Date());
+    state.records = loadDemoRecords().filter(function (r) { return r.date === state.today; });
+    state.tolerance = 5;
+    state.clockOffset = 0;
+    state.backend = 'demo';
+  }
+
+  /* ==========================================================
+     Сеть: JSONP (обход CORS для GitHub Pages)
+     ========================================================== */
+
+  var jsonpSeq = 0;
+
+  function jsonp(params, timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      if (!CONNECTED) {
+        reject(new Error('Демо-режим: нет подключения к Google Таблице.'));
+        return;
+      }
+
+      var cb = '__yavki_cb_' + (++jsonpSeq) + '_' + Date.now().toString(36);
+      var url;
+      try {
+        url = new URL(SCRIPT_URL);
+        url.searchParams.set('token', TOKEN);
+        url.searchParams.set('callback', cb);
+        url.searchParams.set('_', String(Date.now()));
+        Object.keys(params).forEach(function (key) {
+          var val = params[key];
+          if (val !== undefined && val !== null) url.searchParams.set(key, String(val));
+        });
+      } catch (e) {
+        reject(new Error('Некорректный SCRIPT_URL в настройках страницы.'));
+        return;
+      }
+
+      var script = document.createElement('script');
+      var done = false;
+      var timer = setTimeout(function () {
+        finish(new Error('Таблица не ответила вовремя. Проверьте интернет.'));
+      }, timeoutMs || 15000);
+
+      function cleanup() {
+        clearTimeout(timer);
+        try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+
+      function finish(err, data) {
+        if (done) return;
+        done = true;
+        cleanup();
+        if (err) reject(err);
+        else resolve(data);
+      }
+
+      window[cb] = function (data) { finish(null, data); };
+
+      script.onerror = function () {
+        finish(new Error('Не удалось связаться с Google Таблицей. Проверьте интернет.'));
+      };
+      script.async = true;
+      script.src = url.toString();
+      document.head.appendChild(script);
+    });
+  }
+
+  function request(params) {
+    var payload = {};
+    Object.keys(params || {}).forEach(function (k) { payload[k] = params[k]; });
+    payload.token = TOKEN;
+
+    return jsonp(payload).then(function (data) {
+      if (!data || data.ok !== true) {
+        var msg = (data && data.error) ? data.error : 'Некорректный ответ сервера.';
+        var err = new Error(msg);
+        err.server = true;
+        throw err;
+      }
+      return data;
+    });
+  }
+
+  function refreshState() {
+    if (!CONNECTED || state.refreshBusy) return;
+    state.refreshBusy = true;
+
+    request({ action: 'state' }).then(function (res) {
+      applyState(res);
+      state.backend = 'online';
+      state.error = '';
+      state.lastSync = Date.now();
+    }).catch(function (err) {
+      if (err.server) {
+        state.backend = 'error';
+        state.error = err.message;
+      } else {
+        state.backend = 'offline';
+        state.error = err.message;
+      }
+    }).then(function () {
+      state.refreshBusy = false;
+      saveCache();
+      render();
+      if (state.backend === 'online' && state.queue.length) processQueue();
+    });
+  }
+
+  function applyState(res) {
+    state.clockOffset = Number(res.serverTime || Date.now()) - Date.now();
+    state.today = res.today || dateInTz(now());
+    state.tolerance = isFinite(Number(res.tolerance)) ? Number(res.tolerance) : 5;
+    state.defaultStart = res.defaultStart || '09:00';
+    state.defaultEnd = res.defaultEnd || '18:00';
+
+    state.employees = (res.employees || []).map(function (e) {
+      return {
+        id: String(e.id || ''),
+        name: String(e.name || ''),
+        start: e.start || state.defaultStart,
+        end: e.end || state.defaultEnd,
+        hasPin: !!e.hasPin
+      };
+    }).filter(function (e) { return e.id && e.name; });
+
+    state.records = (res.records || []).map(normalizeRecord).filter(function (r) {
+      return r.date === state.today;
+    });
+
+    var saved = {};
+    state.records.forEach(function (r) { saved[r.id] = true; });
+    var before = state.queue.length;
+    state.queue = state.queue.filter(function (q) { return !saved[q.id]; });
+    if (before !== state.queue.length) persistQueue();
+
+    if (state.selectedId && !getEmployee(state.selectedId)) {
+      state.selectedId = '';
+      state.comment = '';
+    }
+  }
+
+  function normalizeRecord(r) {
+    r = r || {};
+    var late = (r.late === null || r.late === undefined || r.late === '') ? null : Number(r.late);
+    if (late !== null && isNaN(late)) late = null;
+    return {
+      id: String(r.id || ''),
+      date: String(r.date || ''),
+      time: String(r.time || ''),
+      employeeId: String(r.employeeId || ''),
+      employee: String(r.employee || ''),
+      type: r.type === 'out' ? 'out' : 'in',
+      late: late,
+      comment: String(r.comment || ''),
+      pending: !!r.pending
+    };
+  }
+
+  /* ==========================================================
+     Отметки и очередь
+     ========================================================== */
+
+  function getEmployee(id) {
+    for (var i = 0; i < state.employees.length; i++) {
+      if (state.employees[i].id === id) return state.employees[i];
+    }
+    return null;
+  }
+
+  function pendingRecord(item) {
+    var d = new Date(item.at);
+    var emp = getEmployee(item.employeeId);
+    var t = timeInTz(d);
+    return normalizeRecord({
+      id: item.id,
+      date: dateInTz(d),
+      time: t,
+      employeeId: item.employeeId,
+      employee: emp ? emp.name : '',
+      type: item.type,
+      late: item.type === 'in' ? calcLateFor(emp ? emp.start : state.defaultStart, t) : null,
+      comment: item.comment || '',
+      pending: true
+    });
+  }
+
+  function allTodayRecords() {
+    var confirmed = state.records.filter(function (r) { return r.date === state.today; });
+    var ids = {};
+    confirmed.forEach(function (r) { ids[r.id] = true; });
+
+    var pending = state.queue.map(pendingRecord).filter(function (r) {
+      return r.date === state.today && !ids[r.id];
+    });
+
+    return confirmed.concat(pending);
+  }
+
+  function recordsFor(employeeId) {
+    return allTodayRecords().filter(function (r) {
+      return r.employeeId === employeeId;
+    }).sort(function (a, b) {
+      return a.time.localeCompare(b.time);
+    });
+  }
+
+  function calcLateFor(start, time) {
+    var a = hhmmToMin(time);
+    var s = hhmmToMin(start);
+    if (a === null || s === null) return 0;
+    var diff = a - s;
+    if (diff <= state.tolerance) return 0;
+    return diff - state.tolerance;
+  }
+
+  function dayInfo(emp) {
+    var recs = recordsFor(emp.id);
+    var firstIn = null;
+    var lastOut = null;
+    for (var i = 0; i < recs.length; i++) {
+      if (!firstIn && recs[i].type === 'in') firstIn = recs[i];
+      if (recs[i].type === 'out') lastOut = recs[i];
+    }
+    var last = recs.length ? recs[recs.length - 1] : null;
+    var onWork = !!last && last.type === 'in';
+    var startedAt = hhmmToMin(emp.start);
+    if (startedAt === null) startedAt = 9 * 60;
+    var late = (firstIn && typeof firstIn.late === 'number') ? firstIn.late : 0;
+    var key, label, shortLabel;
+
+    if (onWork) {
+      key = 'work';
+      label = 'На работе';
+      shortLabel = 'На работе с ' + hm(last.time);
+    } else if (lastOut) {
+      key = 'left';
+      label = 'Ушёл';
+      shortLabel = 'Ушёл в ' + hm(lastOut.time);
+    } else if (nowMinutes() >= startedAt + state.tolerance) {
+      key = 'absent';
+      label = 'Не пришёл';
+      shortLabel = 'Не пришёл';
+    } else {
+      key = 'wait';
+      label = 'Ожидается';
+      shortLabel = 'Ожидается';
+    }
+
+    return {
+      recs: recs,
+      firstIn: firstIn,
+      lastOut: lastOut,
+      last: last,
+      onWork: onWork,
+      key: key,
+      label: label,
+      short: shortLabel,
+      late: late,
+      startedAt: startedAt
+    };
+  }
+
+  function mergeRecord(rec) {
+    var idx = -1;
+    for (var i = 0; i < state.records.length; i++) {
+      if (state.records[i].id === rec.id) { idx = i; break; }
+    }
+    if (idx >= 0) state.records[idx] = rec;
+    else if (rec.date === state.today) state.records.push(rec);
+    saveCache();
+  }
+
+  function scheduleSuccessReset(ms) {
+    clearTimeout(state.successTimer);
+    state.successTimer = setTimeout(function () {
+      if (!state.success) return;
+      state.success = null;
+      state.selectedId = '';
+      state.comment = '';
+      render();
+    }, ms);
+  }
+
+  function resetSuccess() {
+    clearTimeout(state.successTimer);
+    state.success = null;
+    state.selectedId = '';
+    state.comment = '';
+    render();
+  }
+
+  function startMark(type) {
+    if (state.markBusy || (type !== 'in' && type !== 'out')) return;
+    var emp = getEmployee(state.selectedId);
+    if (!emp) return;
+
+    if (emp.hasPin) {
+      if (CONNECTED && state.backend === 'offline') {
+        toast('Для сотрудника с PIN нужен интернет. Попробуйте, когда появится связь.', 'error');
+        return;
+      }
+      openPin(emp, type, '');
+      return;
+    }
+
+    doMark(emp, type, '');
+  }
+
+  function doMark(emp, type, pin) {
+    if (state.markBusy) return;
+
+    var item = {
+      id: uid(),
+      employeeId: emp.id,
+      type: type,
+      comment: String(state.comment || '').trim(),
+      at: Date.now(),
+      pin: pin || '',
+      tries: 0
+    };
+
+    state.markBusy = true;
+    state.success = null;
+    clearTimeout(state.successTimer);
+    render();
+
+    if (!CONNECTED) {
+      demoSubmit(item, emp);
+      return;
+    }
+
+    state.queue.push(item);
+    persistQueue();
+
+    if (state.syncing) {
+      state.success = { record: pendingRecord(item), employee: emp, pending: true };
+      scheduleSuccessReset(6000);
+      state.markBusy = false;
+      render();
+      return;
+    }
+
+    processQueue({ interactive: true, targetId: item.id }).then(function () {
+      state.markBusy = false;
+      if (state.success) state.comment = '';
+      render();
+    }).catch(function (err) {
+      state.markBusy = false;
+      toast(err.message || 'Не удалось сохранить отметку.', 'error');
+      render();
+    });
+  }
+
+  function processQueue(opts) {
+    opts = opts || {};
+    if (!CONNECTED || state.syncing || !state.queue.length) return Promise.resolve();
+
+    state.syncing = true;
+    var sentSomething = false;
+
+    function step() {
+      if (!state.queue.length) return Promise.resolve();
+
+      var item = state.queue[0];
+      state.sendingId = item.id;
+
+      return request({
+        action: 'mark',
+        id: item.id,
+        employeeId: item.employeeId,
+        type: item.type,
+        comment: item.comment || '',
+        pin: item.pin || '',
+        clientTime: item.at,
+        device: deviceLabel()
+      }).then(function (res) {
+        removeQueueItem(item.id);
+
+        var rec = normalizeRecord(res.record);
+        mergeRecord(rec);
+        state.backend = 'online';
+        state.error = '';
+        state.lastSync = Date.now();
+        sentSomething = true;
+
+        if (opts.interactive && opts.targetId === item.id) {
+          state.success = { record: rec, employee: getEmployee(item.employeeId), pending: false };
+          state.comment = '';
+          scheduleSuccessReset(5000);
+        } else if (opts.toast !== false) {
+          toast('Отметка отправлена в таблицу', 'ok');
+        }
+
+        return step();
+      }).catch(function (err) {
+        if (err.server) {
+          removeQueueItem(item.id);
+
+          var emp = getEmployee(item.employeeId);
+          var isPin = String(err.message).indexOf('PIN') !== -1;
+
+          if (!isPin || !opts.interactive || opts.targetId !== item.id) {
+            state.problems.push({
+              name: emp ? emp.name : item.employeeId,
+              time: hm(timeInTz(new Date(item.at))),
+              message: err.message
+            });
+          }
+
+          if (opts.interactive && opts.targetId === item.id) {
+            if (isPin) {
+              var emp2 = getEmployee(item.employeeId);
+              if (emp2) openPin(emp2, item.type, err.message);
+            } else {
+              toast(err.message, 'error');
+            }
+          }
+
+          return step();
+        }
+
+        state.backend = 'offline';
+        state.error = err.message;
+        item.tries = (item.tries || 0) + 1;
+        item.error = err.message;
+        persistQueue();
+        return Promise.resolve();
+      });
+    }
+
+    return step().then(function () {
+      state.syncing = false;
+      state.sendingId = '';
+      saveCache();
+      render();
+
+      if (opts.interactive && opts.targetId) {
+        var still = null;
+        for (var i = 0; i < state.queue.length; i++) {
+          if (state.queue[i].id === opts.targetId) { still = state.queue[i]; break; }
+        }
+        if (still && !state.success) {
+          state.success = {
+            record: pendingRecord(still),
+            employee: getEmployee(still.employeeId),
+            pending: true
+          };
+          scheduleSuccessReset(7000);
+          render();
+        }
+      }
+
+      if (sentSomething && !opts.interactive && !document.hidden) {
+        toast('Связь восстановлена, отметки отправлены', 'ok');
+      }
+    }).catch(function () {
+      state.syncing = false;
+      state.sendingId = '';
+      render();
+    });
+  }
+
+  /* ==========================================================
+     Демо-режим
+     ========================================================== */
+
+  function demoSubmit(item, emp) {
+    var d = new Date(item.at);
+    var t = timeInTz(d);
+    var rec = normalizeRecord({
+      id: item.id,
+      date: dateInTz(d),
+      time: t,
+      employeeId: emp.id,
+      employee: emp.name,
+      type: item.type,
+      late: item.type === 'in' ? calcLateFor(emp.start, t) : null,
+      comment: item.comment
+    });
+
+    var all = loadDemoRecords();
+    all.push(rec);
+    saveDemoRecords(all);
+
+    if (rec.date === state.today) state.records.push(rec);
+
+    state.success = { record: rec, employee: emp, pending: false };
+    state.markBusy = false;
+    state.comment = '';
+    scheduleSuccessReset(4500);
+    render();
+  }
+
+  function demoHistory(days) {
+    var from = shiftDate(state.today, -(days - 1));
+    return loadDemoRecords().filter(function (r) {
+      return r.date >= from;
+    }).sort(function (a, b) {
+      return (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time);
+    });
+  }
+
+  /* ==========================================================
+     PIN сотрудника
+     ========================================================== */
+
+  function openPin(emp, type, error) {
+    state.pinRequest = { employeeId: emp.id, type: type };
+    $('#pinTitle').textContent = 'PIN · ' + emp.name;
+    $('#pinSub').textContent = 'Введите PIN сотрудника, чтобы подтвердить ' + (type === 'in' ? 'приход' : 'уход') + '.';
+    var errEl = $('#pinError');
+    if (error) {
+      errEl.textContent = error;
+      errEl.hidden = false;
+    } else {
+      errEl.hidden = true;
+      errEl.textContent = '';
+    }
+    $('#pinInput').value = '';
+    $('#pinModal').hidden = false;
+    document.body.classList.add('modal-open');
+    setTimeout(function () { var i = $('#pinInput'); if (i) i.focus(); }, 60);
+  }
+
+  function closePin() {
+    state.pinRequest = null;
+    $('#pinModal').hidden = true;
+    $('#pinInput').value = '';
+    $('#pinError').hidden = true;
+    document.body.classList.remove('modal-open');
+  }
+
+  /* ==========================================================
+     Отрисовка
+     ========================================================== */
+
+  function render() {
+    var views = document.querySelectorAll('.view');
+    for (var i = 0; i < views.length; i++) {
+      views[i].hidden = views[i].id !== 'view-' + state.tab;
+    }
+
+    var tabs = document.querySelectorAll('.tab');
+    for (var j = 0; j < tabs.length; j++) {
+      var active = tabs[j].getAttribute('data-tab') === state.tab;
+      tabs[j].classList.toggle('is-active', active);
+      if (active) tabs[j].setAttribute('aria-current', 'page');
+      else tabs[j].removeAttribute('aria-current');
+    }
+
+    renderBanner();
+    renderNet();
+
+    if (state.tab === 'mark') renderMark();
+    else if (state.tab === 'today') renderToday();
+    else renderJournal();
+  }
+
+  function renderNet() {
+    var map = {
+      demo: ['Демо', ''],
+      connecting: ['Подключение', 'wait'],
+      online: ['Онлайн', 'ok'],
+      offline: ['Нет связи', 'bad'],
+      error: ['Ошибка', 'bad']
+    };
+    var item = map[state.backend] || map.offline;
+    $('#netLabel').textContent = item[0];
+    $('#netDot').className = 'dot' + (item[1] ? ' ' + item[1] : '');
+  }
+
+  function renderBanner() {
+    var el = $('#banner');
+    var type = '';
+    var text = '';
+    var action = '';
+    var actionLabel = '';
+
+    if (state.problems.length) {
+      type = 'error';
+      var p = state.problems[0];
+      text = 'Не отправлено: ' + p.name + ' (' + p.time + ') — ' + p.message;
+      if (state.problems.length > 1) text += ' Ещё ' + (state.problems.length - 1) + '.';
+      action = 'clear-problems';
+      actionLabel = 'Скрыть';
+    } else if (state.backend === 'error') {
+      type = 'error';
+      text = 'Ошибка подключения: ' + (state.error || 'проверьте настройки страницы.');
+      action = 'refresh';
+      actionLabel = 'Повторить';
+    } else if (state.backend === 'demo') {
+      type = 'demo';
+      text = 'Демо-режим: данные только в этом браузере. Подключите Google Таблицу (см. ИНСТРУКЦИЯ.md).';
+    } else if (state.backend === 'offline') {
+      type = 'warn';
+      if (state.queue.length) {
+        text = 'Нет связи. ' + state.queue.length + ' ' + plural(state.queue.length, 'отметка', 'отметки', 'отметок') + ' ждёт отправки — отправим автоматически.';
+      } else {
+        text = 'Нет связи с Google Таблицей. Проверьте интернет.';
+      }
+      action = 'retry';
+      actionLabel = 'Повторить';
+    } else if (state.queue.length) {
+      type = 'warn';
+      text = 'Отправляем ' + state.queue.length + ' ' + plural(state.queue.length, 'отметку', 'отметки', 'отметок') + '…';
+    }
+
+    if (!text) {
+      el.hidden = true;
+      el.innerHTML = '';
+      return;
+    }
+
+    el.hidden = false;
+    el.className = 'banner banner-' + type;
+    el.innerHTML = '<span class="banner-text">' + esc(text) + '</span>' +
+      (action ? '<button type="button" class="banner-btn" data-action="' + action + '">' + esc(actionLabel) + '</button>' : '');
+  }
+
+  function filteredEmployees() {
+    var q = String(state.search || '').trim().toLowerCase();
+    if (!q) return state.employees;
+    return state.employees.filter(function (e) {
+      return e.name.toLowerCase().indexOf(q) !== -1;
+    });
+  }
+
+  function gridHtml(list) {
+    if (!list.length) {
+      return '<div class="empty-inline">Никого не нашли. Попробуйте другое имя.</div>';
+    }
+    return list.map(function (e) {
+      var info = dayInfo(e);
+      return '<button type="button" class="emp" data-action="pick" data-id="' + esc(e.id) + '">' +
+        '<span class="avatar" style="--h:' + hue(e.name) + '">' + esc(initials(e.name)) + '</span>' +
+        '<span class="emp-name">' + esc(e.name) + '</span>' +
+        '<span class="emp-status s-' + info.key + '" title="' + esc(info.short) + '">' + esc(info.label) + '</span>' +
+        '</button>';
+    }).join('');
+  }
+
+  function renderEmployeeGrid() {
+    var el = document.getElementById('empGrid');
+    if (el) el.innerHTML = gridHtml(filteredEmployees());
+  }
+
+  function renderMark() {
+    var root = $('#markRoot');
+
+    if (state.success) {
+      root.innerHTML = successHtml();
+      return;
+    }
+
+    if (!state.employees.length) {
+      root.innerHTML = '<div class="card empty">' +
+        '<div class="empty-ico">📡</div>' +
+        '<h2>' + (CONNECTED ? 'Нет данных о сотрудниках' : 'Список пуст') + '</h2>' +
+        '<p>' + (CONNECTED
+          ? 'Не удалось загрузить список. Проверьте интернет и подключение к Google Таблице.'
+          : 'Добавьте сотрудников в список демо-режима или подключите Google Таблицу.') + '</p>' +
+        '<div class="empty-actions">' +
+          '<button type="button" class="btn btn-primary" data-action="refresh">Обновить</button>' +
+        '</div>' +
+        '</div>' +
+        '<p class="footnote">Инструкция по подключению — в файле ИНСТРУКЦИЯ.md</p>';
+      return;
+    }
+
+    var emp = state.selectedId ? getEmployee(state.selectedId) : null;
+    if (!emp) {
+      var showSearch = state.employees.length > 6;
+      root.innerHTML = '<div class="page-head">' +
+          '<div>' +
+            '<div class="eyebrow">Отметка</div>' +
+            '<h1>Кто вы?</h1>' +
+            '<p class="muted">Выберите своё имя и отметьте приход или уход</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="card">' +
+          (showSearch
+            ? '<label class="search">' + ICONS.search +
+              '<input id="empSearch" type="search" placeholder="Поиск по имени" value="' + esc(state.search) + '" autocomplete="off" />' +
+              '</label>'
+            : '') +
+          '<div class="emp-grid" id="empGrid">' + gridHtml(filteredEmployees()) + '</div>' +
+        '</div>' +
+        '<p class="footnote">Время фиксируется сервером · ' + esc(TZ_LABEL) + ' · ' +
+          state.employees.length + ' ' + plural(state.employees.length, 'сотрудник', 'сотрудника', 'сотрудников') +
+        '</p>';
+      return;
+    }
+
+    root.innerHTML = personHtml(emp);
+  }
+
+  function personHtml(emp) {
+    var info = dayInfo(emp);
+    var marks = info.recs.map(function (r) {
+      return '<span class="tl ' + (r.type === 'out' ? 'out' : '') + '">' +
+        '<b>' + esc(hm(r.time)) + '</b>' +
+        '<span>' + (r.type === 'in' ? 'приход' : 'уход') + '</span>' +
+        (r.pending ? '<span class="pending-dot" title="Ждёт отправки">•</span>' : '') +
+        '</span>';
+    }).join('');
+
+    var nowMin = nowMinutes();
+    var diff = nowMin - info.startedAt;
+    var lateNow = diff > state.tolerance ? diff - state.tolerance : 0;
+    var hint;
+
+    if (info.onWork) {
+      hint = 'На работе с <b>' + esc(hm(info.last ? info.last.time : '')) + '</b>';
+      if (info.late > 0) hint += ' · опоздание <b>' + info.late + ' мин</b>';
+    } else if (info.lastOut) {
+      hint = 'Ушёл в <b>' + esc(hm(info.lastOut.time)) + '</b>';
+      if (info.late > 0) hint += ' · опоздание <b>' + info.late + ' мин</b>';
+    } else {
+      hint = 'Сейчас <b>' + esc(hm(timeInTz(now()))) + '</b> · смена с ' + esc(emp.start);
+      if (lateNow > 0) hint += ' · опоздание <b>' + lateNow + ' мин</b>';
+      else if (diff < 0) hint += ' · до начала <b>' + Math.abs(diff) + ' мин</b>';
+      else hint += ' · вовремя';
+    }
+
+    var disabled = state.markBusy ? ' disabled' : '';
+
+    return '<button type="button" class="back" data-action="deselect">← Все сотрудники</button>' +
+      '<div class="card person">' +
+        '<div class="person-top">' +
+          '<span class="avatar avatar-lg" style="--h:' + hue(emp.name) + '">' + esc(initials(emp.name)) + '</span>' +
+          '<div class="person-id">' +
+            '<h2>' + esc(emp.name) + '</h2>' +
+            '<p>Смена ' + esc(emp.start) + '–' + esc(emp.end) +
+              '<span class="dot-sep">·</span>' +
+              '<span class="status-text s-' + info.key + '">' + esc(info.short) + '</span></p>' +
+          '</div>' +
+        '</div>' +
+        (marks ? '<div class="timeline">' + marks + '</div>' : '<p class="muted small" style="margin-top:14px">Сегодня отметок ещё нет</p>') +
+        '<div class="mark-hint">' + hint + '</div>' +
+        '<div class="mark-grid">' +
+          '<button type="button" class="mark-btn in" data-action="mark" data-type="in"' + disabled + '>' +
+            ICONS.arrowDown + '<span>Пришёл</span>' +
+          '</button>' +
+          '<button type="button" class="mark-btn out" data-action="mark" data-type="out"' + disabled + '>' +
+            ICONS.arrowUp + '<span>Ушёл</span>' +
+          '</button>' +
+        '</div>' +
+        '<input class="comment" id="commentInput" type="text" maxlength="200" autocomplete="off" ' +
+          'placeholder="Комментарий (необязательно)" value="' + esc(state.comment) + '" />' +
+        '<p class="hint">Время отметки сохраняет сервер в часовом поясе ' + esc(TZ_LABEL) + '</p>' +
+      '</div>' +
+      (state.markBusy ? '<div class="sending"><span class="spin"></span> Отправляем отметку…</div>' : '');
+  }
+
+  function successHtml() {
+    var s = state.success;
+    var rec = s.record;
+    var emp = s.employee || getEmployee(rec.employeeId);
+    var late = rec.type === 'in' && typeof rec.late === 'number' && rec.late > 0;
+
+    return '<div class="card success ' + (s.pending ? 'is-pending' : '') + '">' +
+      '<div class="success-badge">' + (s.pending ? '…' : '✓') + '</div>' +
+      '<div class="eyebrow">' + (s.pending ? 'Ожидает отправки' : 'Готово') + '</div>' +
+      '<h2>' + (s.pending ? 'Отметка сохранена' : 'Отметка записана') + '</h2>' +
+      '<div class="success-person">' + esc(emp ? emp.name : rec.employee) + '</div>' +
+      '<div class="success-row">' +
+        '<span class="success-time">' + esc(hm(rec.time)) + '</span>' +
+        '<span class="success-type">' + (rec.type === 'in' ? 'приход' : 'уход') + '</span>' +
+      '</div>' +
+      (late ? '<div class="success-late">Опоздание ' + rec.late + ' мин</div>' : '') +
+      (s.pending ? '<p class="hint">Нет связи с таблицей. Отправим автоматически, когда появится интернет.</p>' : '') +
+      '<button type="button" class="btn btn-primary success-btn" data-action="reset">Готово</button>' +
+      '<p class="hint">Окно закроется само через несколько секунд</p>' +
+      '</div>';
+  }
+
+  function renderToday() {
+    var root = $('#todayRoot');
+
+    if (!state.employees.length) {
+      root.innerHTML = '<div class="card empty">' +
+        '<div class="empty-ico">👥</div>' +
+        '<h2>Пока никого нет</h2>' +
+        '<p>Список сотрудников появится после подключения Google Таблицы или загрузки данных.</p>' +
+        '<button type="button" class="btn btn-primary" data-action="refresh">Обновить</button>' +
+        '</div>';
+      return;
+    }
+
+    var infos = state.employees.map(function (e) { return { emp: e, info: dayInfo(e) }; });
+    var work = 0, came = 0, late = 0, absent = 0;
+    infos.forEach(function (x) {
+      if (x.info.onWork) work++;
+      if (x.info.firstIn) came++;
+      if (x.info.late > 0) late++;
+      if (x.info.key === 'absent') absent++;
+    });
+
+    var rows = infos.map(function (x) {
+      var e = x.emp;
+      var info = x.info;
+      var times;
+      if (info.firstIn) {
+        times = hm(info.firstIn.time) + ' → ' + (info.lastOut ? hm(info.lastOut.time) : '…');
+      } else {
+        times = 'с ' + e.start;
+      }
+      return '<button type="button" class="person-row" data-action="pick" data-id="' + esc(e.id) + '">' +
+        '<span class="avatar" style="--h:' + hue(e.name) + '">' + esc(initials(e.name)) + '</span>' +
+        '<span class="row-main">' +
+          '<span class="row-name">' + esc(e.name) + '</span>' +
+          '<span class="row-sub">' + esc(times) +
+            (info.late > 0 ? ' <span class="row-late">+' + info.late + ' мин</span>' : '') +
+          '</span>' +
+        '</span>' +
+        '<span class="pill ' + info.key + '">' + esc(info.label) + '</span>' +
+        '</button>';
+    }).join('');
+
+    var updated = state.lastSync
+      ? 'обновлено в ' + esc(hm(timeInTz(new Date(state.lastSync))))
+      : (state.backend === 'demo' ? 'демо-данные' : 'ещё не обновлялось');
+
+    root.innerHTML = '<div class="page-head">' +
+        '<div>' +
+          '<div class="eyebrow">Сводка</div>' +
+          '<h1>Сегодня</h1>' +
+          '<p class="muted">' + esc(todayLong()) + '</p>' +
+        '</div>' +
+        '<button type="button" class="icon-btn" data-action="refresh" title="Обновить" aria-label="Обновить">' + ICONS.refresh + '</button>' +
+      '</div>' +
+      '<div class="stats">' +
+        '<div class="stat ok"><span class="stat-num">' + work + '</span><span class="stat-label">На работе</span></div>' +
+        '<div class="stat"><span class="stat-num">' + came + '</span><span class="stat-label">Пришли</span></div>' +
+        '<div class="stat warn"><span class="stat-num">' + late + '</span><span class="stat-label">Опоздали</span></div>' +
+        '<div class="stat bad"><span class="stat-num">' + absent + '</span><span class="stat-label">Не пришли</span></div>' +
+      '</div>' +
+      '<div class="card list-card">' +
+        '<div class="list-head"><span>Сотрудники</span><span>' + state.employees.length + '</span></div>' +
+        rows +
+      '</div>' +
+      '<p class="footnote">' + esc(updated) + ' · данные из Google Таблицы</p>';
+  }
+
+  function renderJournal() {
+    var root = $('#journalRoot');
+    var h = state.history;
+    var body;
+
+    if (h.loading && !h.records.length) {
+      body = '<div class="card"><div class="skeleton"><span class="spin"></span> Загружаем журнал…</div></div>';
+    } else if (h.error) {
+      body = '<div class="card empty">' +
+        '<div class="empty-ico">⚠️</div>' +
+        '<h2>Не удалось загрузить</h2>' +
+        '<p>' + esc(h.error) + '</p>' +
+        '<button type="button" class="btn btn-primary" data-action="history-refresh">Повторить</button>' +
+        '</div>';
+    } else if (!h.records.length) {
+      body = '<div class="card empty">' +
+        '<div class="empty-ico">🗂</div>' +
+        '<h2>Отметок пока нет</h2>' +
+        '<p>За выбранный период в таблице нет записей.</p>' +
+        '</div>';
+    } else {
+      body = journalGroupsHtml(h.records);
+    }
+
+    root.innerHTML = '<div class="page-head">' +
+        '<div>' +
+          '<div class="eyebrow">История</div>' +
+          '<h1>Журнал</h1>' +
+          '<p class="muted">' + esc(rangeLabel()) + '</p>' +
+        '</div>' +
+        '<button type="button" class="icon-btn" data-action="history-refresh" title="Обновить" aria-label="Обновить">' + ICONS.refresh + '</button>' +
+      '</div>' +
+      '<div class="seg" role="group" aria-label="Период">' + rangeButtons() + '</div>' +
+      '<div class="journal-tools">' +
+        '<span class="muted small">' + h.records.length + ' ' + plural(h.records.length, 'отметка', 'отметки', 'отметок') + '</span>' +
+        '<button type="button" class="btn btn-sm" data-action="export"' + (h.records.length ? '' : ' disabled') + '>' +
+          ICONS.download + ' Скачать CSV' +
+        '</button>' +
+      '</div>' +
+      body;
+  }
+
+  function rangeButtons() {
+    var out = '';
+    var items = [[1, 'Сегодня'], [7, '7 дней'], [30, '30 дней']];
+    for (var i = 0; i < items.length; i++) {
+      var d = items[i][0];
+      out += '<button type="button" data-action="range" data-days="' + d + '"' +
+        (state.history.days === d ? ' class="is-active"' : '') + '>' + items[i][1] + '</button>';
+    }
+    return out;
+  }
+
+  function rangeLabel() {
+    if (state.history.days === 1) return dateLabel(state.today);
+    return 'Последние ' + state.history.days + ' ' + plural(state.history.days, 'день', 'дня', 'дней');
+  }
+
+  function journalGroupsHtml(records) {
+    var groups = {};
+    records.forEach(function (r) {
+      if (!groups[r.date]) groups[r.date] = [];
+      groups[r.date].push(r);
+    });
+
+    return Object.keys(groups).sort().reverse().map(function (date) {
+      var list = groups[date].sort(function (a, b) {
+        return b.time.localeCompare(a.time);
+      });
+      return '<section class="jgroup">' +
+        '<div class="jhead"><span>' + esc(dateLabel(date)) + '</span><span>' + list.length + '</span></div>' +
+        '<div class="card jlist">' + list.map(journalRow).join('') + '</div>' +
+        '</section>';
+    }).join('');
+  }
+
+  function journalRow(r) {
+    return '<div class="jrow">' +
+      '<span class="jtime">' + esc(hm(r.time)) + '</span>' +
+      '<span class="jmain">' +
+        '<span class="jname">' + esc(r.employee) + '</span>' +
+        (r.comment ? '<span class="jcomment">' + esc(r.comment) + '</span>' : '') +
+      '</span>' +
+      '<span class="jtype ' + r.type + '">' + (r.type === 'in' ? 'приход' : 'уход') + '</span>' +
+      (r.type === 'in' && r.late > 0 ? '<span class="jlate">+' + r.late + ' мин</span>' : '') +
+      '</div>';
+  }
+
+  /* ==========================================================
+     История
+     ========================================================== */
+
+  function loadHistory(force) {
+    var h = state.history;
+    if (h.loading && !force) return;
+    if (!force && h.loaded && h.loadedDays === h.days) {
+      renderJournal();
+      return;
+    }
+
+    var reqDays = h.days;
+    var token = ++historySeq;
+    h.loading = true;
+    h.error = '';
+    renderJournal();
+
+    var task;
+
+    if (!CONNECTED) {
+      task = Promise.resolve().then(function () {
+        h.records = demoHistory(reqDays);
+      });
+    } else {
+      task = request({ action: 'history', days: reqDays }).then(function (res) {
+        h.records = (res.records || []).map(normalizeRecord);
+        state.clockOffset = Number(res.serverTime || Date.now()) - Date.now();
+        if (res.today) state.today = res.today;
+      });
+    }
+
+    task.then(function () {
+      if (token !== historySeq) return;
+      h.loaded = true;
+      h.loadedDays = reqDays;
+    }).catch(function (err) {
+      if (token !== historySeq) return;
+      h.error = err.message || 'Не удалось загрузить журнал.';
+      if (err.server) {
+        state.backend = 'error';
+        state.error = h.error;
+      }
+    }).then(function () {
+      if (token !== historySeq) return;
+      h.loading = false;
+      renderJournal();
+      renderBanner();
+      renderNet();
+    });
+  }
+
+  /* ==========================================================
+     CSV
+     ========================================================== */
+
+  function csvCell(v) {
+    var s = String(v == null ? '' : v);
+    if (/^[=+\-@]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+
+  function exportCsv() {
+    var records = state.history.records.slice().sort(function (a, b) {
+      return (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time);
+    });
+    if (!records.length) {
+      toast('За этот период нет отметок', 'warn');
+      return;
+    }
+
+    var lines = [['Дата', 'Время', 'Сотрудник', 'Тип', 'Опоздание, мин', 'Комментарий']];
+    records.forEach(function (r) {
+      lines.push([
+        r.date,
+        hm(r.time),
+        r.employee,
+        r.type === 'in' ? 'приход' : 'уход',
+        (r.late === null || r.late === undefined) ? '' : r.late,
+        r.comment || ''
+      ]);
+    });
+
+    var csv = lines.map(function (row) {
+      return row.map(csvCell).join(';');
+    }).join('\r\n');
+
+    var from = records[0].date;
+    var to = records[records.length - 1].date;
+    download('явки-' + from + '_' + to + '.csv', '\ufeff' + csv);
+    toast('Файл CSV скачан', 'ok');
+  }
+
+  function download(filename, text) {
+    var blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+      if (a.parentNode) a.parentNode.removeChild(a);
+    }, 1200);
+  }
+
+  /* ==========================================================
+     Вкладки и действия
+     ========================================================== */
+
+  function setTab(tab) {
+    if (tab !== 'mark' && tab !== 'today' && tab !== 'journal') return;
+    if (tab === state.tab) {
+      if (tab === 'journal' && !state.history.loaded) loadHistory(false);
+      return;
+    }
+
+    state.tab = tab;
+    clearTimeout(state.successTimer);
+    state.success = null;
+
+    if (tab === 'journal') loadHistory(false);
+    if (tab === 'today' && CONNECTED && Date.now() - state.lastSync > 30000) refreshState();
+
+    render();
+  }
+
+  function pickEmployee(id) {
+    if (!getEmployee(id)) return;
+    if (state.selectedId !== id) state.comment = '';
+    state.selectedId = id;
+    state.search = '';
+    state.success = null;
+    clearTimeout(state.successTimer);
+    state.tab = 'mark';
+    render();
+  }
+
+  function toast(message, type) {
+    var el = $('#toast');
+    el.textContent = message;
+    el.className = 'toast show' + (type ? ' ' + type : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.className = 'toast'; }, 4200);
+  }
+
+  /* ==========================================================
+     Часы и автообновление
+     ========================================================== */
+
+  function updateClock() {
+    var el = $('#clock');
+    if (el) el.textContent = timeInTz(now());
+  }
+
+  function isEditingInput() {
+    var a = document.activeElement;
+    if (!a) return false;
+    return (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') && a.id !== 'pinInput';
+  }
+
+  function tick() {
+    updateClock();
+
+    var minute = Math.floor(Date.now() / 60000);
+    if (minute !== lastMinute) {
+      lastMinute = minute;
+      if (state.tab === 'today') renderToday();
+    }
+  }
+
+  /* ==========================================================
+     События
+     ========================================================== */
+
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-action]');
+    if (!el) return;
+
+    var action = el.getAttribute('data-action');
+
+    if (action === 'tab') {
+      setTab(el.getAttribute('data-tab'));
+    } else if (action === 'pick') {
+      pickEmployee(el.getAttribute('data-id'));
+    } else if (action === 'deselect') {
+      state.selectedId = '';
+      state.comment = '';
+      state.success = null;
+      clearTimeout(state.successTimer);
+      render();
+    } else if (action === 'mark') {
+      startMark(el.getAttribute('data-type'));
+    } else if (action === 'reset') {
+      resetSuccess();
+    } else if (action === 'refresh') {
+      refreshState();
+    } else if (action === 'retry') {
+      refreshState();
+      processQueue();
+    } else if (action === 'clear-problems') {
+      state.problems = [];
+      render();
+    } else if (action === 'range') {
+      var days = Number(el.getAttribute('data-days')) || 7;
+      state.history.days = days;
+      state.history.loaded = false;
+      state.history.loadedDays = 0;
+      state.history.records = [];
+      state.history.error = '';
+      loadHistory(true);
+    } else if (action === 'history-refresh') {
+      loadHistory(true);
+    } else if (action === 'export') {
+      exportCsv();
+    } else if (action === 'pin-cancel') {
+      closePin();
+    }
+  });
+
+  document.addEventListener('input', function (e) {
+    if (e.target.id === 'empSearch') {
+      state.search = e.target.value;
+      renderEmployeeGrid();
+    } else if (e.target.id === 'commentInput') {
+      state.comment = e.target.value;
+    }
+  });
+
+  $('#pinForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var req = state.pinRequest;
+    if (!req) return;
+
+    var pin = String($('#pinInput').value || '').replace(/\D/g, '');
+    if (pin.length < 3) {
+      $('#pinError').textContent = 'Введите PIN (минимум 3 цифры).';
+      $('#pinError').hidden = false;
+      $('#pinInput').focus();
+      return;
+    }
+
+    var emp = getEmployee(req.employeeId);
+    if (!emp) {
+      closePin();
+      toast('Сотрудник не найден. Обновите страницу.', 'error');
+      return;
+    }
+
+    closePin();
+    doMark(emp, req.type, pin);
+  });
+
+  $('#pinModal').addEventListener('click', function (e) {
+    if (e.target === $('#pinModal')) closePin();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !$('#pinModal').hidden) closePin();
+  });
+
+  window.addEventListener('online', function () {
+    if (!CONNECTED) return;
+    state.backend = 'connecting';
+    renderNet();
+    refreshState();
+  });
+
+  window.addEventListener('offline', function () {
+    if (!CONNECTED) return;
+    state.backend = 'offline';
+    state.error = 'Браузер без сети';
+    render();
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (!CONNECTED || document.hidden) return;
+    if (Date.now() - state.lastSync > 60000) refreshState();
+  });
+
+  /* ==========================================================
+     Запуск
+     ========================================================== */
+
+  function boot() {
+    $('#brandName').textContent = 'ЯВКИ';
+    $('#companyName').textContent = CONFIG.COMPANY || 'Отметка сотрудников';
+    $('#clockSub').textContent = TZ_LABEL;
+    document.title = 'ЯВКИ · ' + (CONFIG.COMPANY || 'отметка сотрудников');
+
+    loadCache();
+
+    if (!CONNECTED) {
+      initDemo();
+    } else if (!state.employees.length) {
+      state.backend = 'connecting';
+    }
+
+    updateClock();
+    render();
+
+    setInterval(tick, 1000);
+
+    setInterval(function () {
+      if (!CONNECTED || document.hidden || state.refreshBusy) return;
+      if (isEditingInput()) return;
+      if (Date.now() - state.lastSync < 15000) return;
+      refreshState();
+    }, POLL_MS);
+
+    setInterval(function () {
+      if (!CONNECTED || document.hidden || state.syncing || state.markBusy) return;
+      if (isEditingInput()) return;
+      if (state.queue.length) processQueue();
+    }, QUEUE_RETRY_MS);
+
+    if (CONNECTED) {
+      refreshState();
+      if (state.queue.length) processQueue();
+    }
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
